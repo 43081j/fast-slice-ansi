@@ -1,4 +1,4 @@
-import {parse} from '@ansi-tools/parser';
+import {tokenizer} from '@ansi-tools/parser';
 
 const getClosingCode = (openingCode: number): number => {
   if (openingCode >= 30 && openingCode <= 37) return 39;
@@ -14,26 +14,28 @@ const getClosingCode = (openingCode: number): number => {
   return 0;
 };
 
-const isEndCode = (code: number): boolean => {
+const isEndCode = (code: string): boolean => {
   return (
-    code === 0 ||
-    code === 39 ||
-    code === 49 ||
-    code === 22 ||
-    code === 23 ||
-    code === 24 ||
-    code === 27 ||
-    code === 28 ||
-    code === 29
+    code === '0' ||
+    code === '39' ||
+    code === '49' ||
+    code === '22' ||
+    code === '23' ||
+    code === '24' ||
+    code === '27' ||
+    code === '28' ||
+    code === '29'
   );
 };
 
 export function sliceAnsi(input: string, start: number, end?: number) {
-  const codes = parse(input);
-  let activeCodes: Array<[number, number]> = [];
+  const codes = tokenizer(input);
+  let activeCodes: Array<[string, number]> = [];
   let position = 0;
   let returnValue = '';
   let include = false;
+  let currentIntroducer: string | undefined;
+  let currentData: string | undefined;
 
   for (const code of codes) {
     if (end !== undefined && position >= end) {
@@ -41,6 +43,45 @@ export function sliceAnsi(input: string, start: number, end?: number) {
     }
 
     switch (code.type) {
+      case 'INTRODUCER':
+        currentIntroducer = code.raw;
+        currentData = undefined;
+
+        if (include) {
+          returnValue += code.raw;
+        }
+        break;
+      case 'DATA': {
+        if (currentIntroducer !== '\x1b[') {
+          break;
+        }
+        currentData = code.raw;
+        if (!isEndCode(currentData)) {
+          const closingCodeParam = getClosingCode(Number(currentData));
+          activeCodes = activeCodes.filter(
+            ([, closingCode]) =>
+              closingCode !== closingCodeParam && closingCode !== 22
+          );
+          activeCodes.push([currentData, closingCodeParam]);
+        } else {
+          activeCodes = activeCodes.filter(
+            ([, closingCode]) => closingCode !== Number(currentData)
+          );
+        }
+
+        if (include) {
+          returnValue += code.raw;
+        }
+        break;
+      }
+      case 'FINAL':
+        currentData = undefined;
+        currentIntroducer = undefined;
+
+        if (include) {
+          returnValue += code.raw;
+        }
+        break;
       case 'TEXT': {
         for (const chr of code.raw) {
           if (end !== undefined && position >= end) {
@@ -60,26 +101,6 @@ export function sliceAnsi(input: string, start: number, end?: number) {
             returnValue += chr;
           }
           position++;
-        }
-        break;
-      }
-      default: {
-        const codeNumber = Number(code.params[0]);
-        if (!isEndCode(codeNumber)) {
-          const closingCodeParam = getClosingCode(codeNumber);
-          activeCodes = activeCodes.filter(
-            ([, closingCode]) =>
-              closingCode !== closingCodeParam && closingCode !== 22
-          );
-          activeCodes.push([codeNumber, getClosingCode(codeNumber)]);
-        } else {
-          activeCodes = activeCodes.filter(
-            ([, closingCode]) => closingCode !== codeNumber
-          );
-        }
-
-        if (include) {
-          returnValue += code.raw;
         }
         break;
       }
