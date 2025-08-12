@@ -26,21 +26,23 @@ export function sliceAnsi(input: string, start: number, end?: number) {
       break;
     }
 
+    const codeLength = code.raw.length;
+
     switch (code.type) {
       case 'INTRODUCER':
         currentIntroducer = code.raw;
         currentData = undefined;
-        rawIndex += code.raw.length;
+        rawIndex += codeLength;
         break;
       case 'DATA': {
         if (currentIntroducer === '\x1b[') {
           currentData = code.raw;
         }
-        rawIndex += code.raw.length;
+        rawIndex += codeLength;
         break;
       }
       case 'FINAL': {
-        rawIndex += code.raw.length;
+        rawIndex += codeLength;
         if (
           currentData === undefined ||
           currentIntroducer !== '\x1b[' ||
