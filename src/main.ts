@@ -21,11 +21,7 @@ export function sliceAnsi(input: string, start: number, end?: number) {
   let isHidden = false;
   let isStrikethrough = false;
 
-  for (const code of codes) {
-    if (end !== undefined && position >= end) {
-      break;
-    }
-
+  codeLoop: for (const code of codes) {
     const codeLength = code.raw.length;
 
     switch (code.type) {
@@ -50,8 +46,9 @@ export function sliceAnsi(input: string, start: number, end?: number) {
         ) {
           break;
         }
-        switch (currentData) {
-          case '0':
+        const asNumber = +currentData;
+        switch (asNumber) {
+          case 0:
             currentFg = undefined;
             currentBg = undefined;
             currentUnknown = undefined;
@@ -63,55 +60,53 @@ export function sliceAnsi(input: string, start: number, end?: number) {
             isHidden = false;
             isStrikethrough = false;
             break;
-          case '39':
+          case 39:
             currentFg = undefined;
             break;
-          case '49':
+          case 49:
             currentBg = undefined;
             break;
-          case '22':
+          case 22:
             isDim = false;
             isBold = false;
             break;
-          case '23':
+          case 23:
             isItalic = false;
             break;
-          case '24':
+          case 24:
             isUnderline = false;
             break;
-          case '27':
+          case 27:
             isInverse = false;
             break;
-          case '28':
+          case 28:
             isHidden = false;
             break;
-          case '29':
+          case 29:
             isStrikethrough = false;
             break;
-          case '1':
+          case 1:
             isBold = true;
             break;
-          case '2':
+          case 2:
             isDim = true;
             break;
-          case '3':
+          case 3:
             isItalic = true;
             break;
-          case '4':
+          case 4:
             isUnderline = true;
             break;
-          case '7':
+          case 7:
             isInverse = true;
             break;
-          case '8':
+          case 8:
             isHidden = true;
             break;
-          case '9':
+          case 9:
             isStrikethrough = true;
             break;
           default: {
-            const asNumber = Number(currentData);
-
             if (
               (asNumber >= 30 && asNumber <= 37) ||
               (asNumber >= 90 && asNumber <= 97)
@@ -140,7 +135,7 @@ export function sliceAnsi(input: string, start: number, end?: number) {
       case 'TEXT': {
         for (let i = 0; i < code.raw.length; i++) {
           if (end !== undefined && position >= end) {
-            break;
+            break codeLoop;
           }
           const codePoint = code.raw.codePointAt(i);
           if (!include) {
@@ -185,6 +180,9 @@ export function sliceAnsi(input: string, start: number, end?: number) {
           }
           rawIndex++;
           position++;
+          if (end !== undefined && position >= end) {
+            break codeLoop;
+          }
         }
         break;
       }
