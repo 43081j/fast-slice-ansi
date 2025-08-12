@@ -1,13 +1,17 @@
 import {tokenizer} from '@ansi-tools/parser';
 
 export function sliceAnsi(input: string, start: number, end?: number) {
+  if (end !== undefined && start === end) {
+    return '';
+  }
+
   const codes = tokenizer(input);
   let position = 0;
   let include = false;
   let currentIntroducer: string | undefined;
   let currentData: string | undefined;
   let rawStart: number = 0;
-  let rawIndex: number = 0;
+  let rawIndex: number = input.length;
   let prefix: string = '';
 
   let currentFg: string | undefined;
@@ -22,23 +26,18 @@ export function sliceAnsi(input: string, start: number, end?: number) {
   let isStrikethrough = false;
 
   codeLoop: for (const code of codes) {
-    const codeLength = code.raw.length;
-
     switch (code.type) {
       case 'INTRODUCER':
         currentIntroducer = code.raw;
         currentData = undefined;
-        rawIndex += codeLength;
         break;
       case 'DATA': {
         if (currentIntroducer === '\x1b[') {
           currentData = code.raw;
         }
-        rawIndex += codeLength;
         break;
       }
       case 'FINAL': {
-        rawIndex += codeLength;
         if (
           currentData === undefined ||
           currentIntroducer !== '\x1b[' ||
@@ -135,13 +134,14 @@ export function sliceAnsi(input: string, start: number, end?: number) {
       case 'TEXT': {
         for (let i = 0; i < code.raw.length; i++) {
           if (end !== undefined && position >= end) {
+            rawIndex = code.pos + i + 1;
             break codeLoop;
           }
           const codePoint = code.raw.codePointAt(i);
           if (!include) {
             include = position >= start;
             if (include) {
-              rawStart = rawIndex;
+              rawStart = code.pos + i;
               if (currentFg) {
                 prefix += `\x1B[${currentFg}m`;
               }
@@ -176,11 +176,10 @@ export function sliceAnsi(input: string, start: number, end?: number) {
           }
           if (codePoint !== undefined && codePoint > 0xffff) {
             i++;
-            rawIndex++;
           }
-          rawIndex++;
           position++;
           if (end !== undefined && position >= end) {
+            rawIndex = code.pos + i + 1;
             break codeLoop;
           }
         }
