@@ -3,10 +3,12 @@ import {tokenizer} from '@ansi-tools/parser';
 export function sliceAnsi(input: string, start: number, end?: number) {
   const codes = tokenizer(input);
   let position = 0;
-  let returnValue = '';
   let include = false;
   let currentIntroducer: string | undefined;
   let currentData: string | undefined;
+  let rawStart: number = 0;
+  let rawIndex: number = 0;
+  let prefix: string = '';
 
   let currentFg: string | undefined;
   let currentBg: string | undefined;
@@ -27,29 +29,22 @@ export function sliceAnsi(input: string, start: number, end?: number) {
       case 'INTRODUCER':
         currentIntroducer = code.raw;
         currentData = undefined;
-
-        if (include) {
-          returnValue += code.raw;
-        }
+        rawIndex += code.raw.length;
         break;
       case 'DATA': {
         if (currentIntroducer === '\x1b[') {
           currentData = code.raw;
         }
-        if (include) {
-          returnValue += code.raw;
-        }
+        rawIndex += code.raw.length;
         break;
       }
       case 'FINAL': {
+        rawIndex += code.raw.length;
         if (
           currentData === undefined ||
           currentIntroducer !== '\x1b[' ||
           code.raw !== 'm'
         ) {
-          if (include) {
-            returnValue += code.raw;
-          }
           break;
         }
         switch (currentData) {
@@ -121,13 +116,13 @@ export function sliceAnsi(input: string, start: number, end?: number) {
               currentBg = currentData;
             } else if (asNumber >= 100 && asNumber <= 107) {
               currentBg = currentData;
+            } else if (currentData.startsWith('38;')) {
+              currentFg = currentData;
+            } else if (currentData.startsWith('48;')) {
+              currentBg = currentData;
             }
             break;
           }
-        }
-
-        if (include) {
-          returnValue += code.raw;
         }
 
         currentData = undefined;
@@ -135,45 +130,49 @@ export function sliceAnsi(input: string, start: number, end?: number) {
         break;
       }
       case 'TEXT': {
-        for (const chr of code.raw) {
+        for (let i = 0; i < code.raw.length; i++) {
           if (end !== undefined && position >= end) {
             break;
           }
+          const codePoint = code.raw.codePointAt(i);
           if (!include) {
             include = position >= start;
             if (include) {
+              rawStart = rawIndex;
               if (currentFg) {
-                returnValue += `\x1B[${currentFg}m`;
+                prefix += `\x1B[${currentFg}m`;
               }
               if (currentBg) {
-                returnValue += `\x1B[${currentBg}m`;
+                prefix += `\x1B[${currentBg}m`;
               }
               if (isDim) {
-                returnValue += '\x1B[2m';
+                prefix += '\x1B[2m';
               }
               if (isBold) {
-                returnValue += '\x1B[1m';
+                prefix += '\x1B[1m';
               }
               if (isItalic) {
-                returnValue += '\x1B[3m';
+                prefix += '\x1B[3m';
               }
               if (isUnderline) {
-                returnValue += '\x1B[4m';
+                prefix += '\x1B[4m';
               }
               if (isInverse) {
-                returnValue += '\x1B[7m';
+                prefix += '\x1B[7m';
               }
               if (isHidden) {
-                returnValue += '\x1B[8m';
+                prefix += '\x1B[8m';
               }
               if (isStrikethrough) {
-                returnValue += '\x1B[9m';
+                prefix += '\x1B[9m';
               }
             }
           }
-          if (include) {
-            returnValue += chr;
+          if (codePoint !== undefined && codePoint > 0xffff) {
+            i++;
+            rawIndex++;
           }
+          rawIndex++;
           position++;
         }
         break;
@@ -181,16 +180,14 @@ export function sliceAnsi(input: string, start: number, end?: number) {
     }
   }
 
+  let returnValue = prefix + input.slice(rawStart, rawIndex);
   if (currentFg) {
     returnValue += '\x1B[39m';
   }
   if (currentBg) {
     returnValue += '\x1B[49m';
   }
-  if (isDim) {
-    returnValue += '\x1B[22m';
-  }
-  if (isBold) {
+  if (isDim || isBold) {
     returnValue += '\x1B[22m';
   }
   if (isItalic) {
