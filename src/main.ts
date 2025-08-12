@@ -1,41 +1,22 @@
 import {tokenizer} from '@ansi-tools/parser';
 
-const getClosingCode = (openingCode: number): number => {
-  if (openingCode >= 30 && openingCode <= 37) return 39;
-  if (openingCode >= 90 && openingCode <= 97) return 39;
-  if (openingCode >= 40 && openingCode <= 47) return 49;
-  if (openingCode >= 100 && openingCode <= 107) return 49;
-  if (openingCode === 1 || openingCode === 2) return 22;
-  if (openingCode === 3) return 23;
-  if (openingCode === 4) return 24;
-  if (openingCode === 7) return 27;
-  if (openingCode === 8) return 28;
-  if (openingCode === 9) return 29;
-  return 0;
-};
-
-const isEndCode = (code: string): boolean => {
-  return (
-    code === '0' ||
-    code === '39' ||
-    code === '49' ||
-    code === '22' ||
-    code === '23' ||
-    code === '24' ||
-    code === '27' ||
-    code === '28' ||
-    code === '29'
-  );
-};
-
 export function sliceAnsi(input: string, start: number, end?: number) {
   const codes = tokenizer(input);
-  let activeCodes: Array<[string, number]> = [];
   let position = 0;
   let returnValue = '';
   let include = false;
   let currentIntroducer: string | undefined;
   let currentData: string | undefined;
+
+  let currentFg: string | undefined;
+  let currentBg: string | undefined;
+  let isDim = false;
+  let isBold = false;
+  let isItalic = false;
+  let isUnderline = false;
+  let isInverse = false;
+  let isHidden = false;
+  let isStrikethrough = false;
 
   for (const code of codes) {
     if (end !== undefined && position >= end) {
@@ -52,36 +33,107 @@ export function sliceAnsi(input: string, start: number, end?: number) {
         }
         break;
       case 'DATA': {
-        if (currentIntroducer !== '\x1b[') {
-          break;
+        if (currentIntroducer === '\x1b[') {
+          currentData = code.raw;
         }
-        currentData = code.raw;
-        if (!isEndCode(currentData)) {
-          const closingCodeParam = getClosingCode(Number(currentData));
-          activeCodes = activeCodes.filter(
-            ([, closingCode]) =>
-              closingCode !== closingCodeParam && closingCode !== 22
-          );
-          activeCodes.push([currentData, closingCodeParam]);
-        } else {
-          activeCodes = activeCodes.filter(
-            ([, closingCode]) => closingCode !== Number(currentData)
-          );
-        }
-
         if (include) {
           returnValue += code.raw;
         }
         break;
       }
-      case 'FINAL':
-        currentData = undefined;
-        currentIntroducer = undefined;
+      case 'FINAL': {
+        if (
+          currentData === undefined ||
+          currentIntroducer !== '\x1b[' ||
+          code.raw !== 'm'
+        ) {
+          if (include) {
+            returnValue += code.raw;
+          }
+          break;
+        }
+        switch (currentData) {
+          case '0':
+            currentFg = undefined;
+            currentBg = undefined;
+            isDim = false;
+            isBold = false;
+            isItalic = false;
+            isUnderline = false;
+            isInverse = false;
+            isHidden = false;
+            isStrikethrough = false;
+            break;
+          case '39':
+            currentFg = undefined;
+            break;
+          case '49':
+            currentBg = undefined;
+            break;
+          case '22':
+            isDim = false;
+            isBold = false;
+            break;
+          case '23':
+            isItalic = false;
+            break;
+          case '24':
+            isUnderline = false;
+            break;
+          case '27':
+            isInverse = false;
+            break;
+          case '28':
+            isHidden = false;
+            break;
+          case '29':
+            isStrikethrough = false;
+            break;
+          case '1':
+            isBold = true;
+            break;
+          case '2':
+            isDim = true;
+            break;
+          case '3':
+            isItalic = true;
+            break;
+          case '4':
+            isUnderline = true;
+            break;
+          case '7':
+            isInverse = true;
+            break;
+          case '8':
+            isHidden = true;
+            break;
+          case '9':
+            isStrikethrough = true;
+            break;
+          default: {
+            const asNumber = Number(currentData);
+
+            if (asNumber >= 30 && asNumber <= 37) {
+              currentFg = currentData;
+            } else if (asNumber >= 90 && asNumber <= 97) {
+              currentFg = currentData;
+            } else if (asNumber >= 40 && asNumber <= 47) {
+              currentBg = currentData;
+            } else if (asNumber >= 100 && asNumber <= 107) {
+              currentBg = currentData;
+            }
+            break;
+          }
+        }
 
         if (include) {
           returnValue += code.raw;
         }
+
+        currentData = undefined;
+        currentIntroducer = undefined;
         break;
+      }
       case 'TEXT': {
         for (const chr of code.raw) {
           if (end !== undefined && position >= end) {
@@ -90,8 +142,32 @@ export function sliceAnsi(input: string, start: number, end?: number) {
           if (!include) {
             include = position >= start;
             if (include) {
-              for (let i = 0; i < activeCodes.length; i++) {
-                returnValue += `\x1B[${activeCodes[i][0]}m`;
+              if (currentFg) {
+                returnValue += `\x1B[${currentFg}m`;
+              }
+              if (currentBg) {
+                returnValue += `\x1B[${currentBg}m`;
+              }
+              if (isDim) {
+                returnValue += '\x1B[2m';
+              }
+              if (isBold) {
+                returnValue += '\x1B[1m';
+              }
+              if (isItalic) {
+                returnValue += '\x1B[3m';
+              }
+              if (isUnderline) {
+                returnValue += '\x1B[4m';
+              }
+              if (isInverse) {
+                returnValue += '\x1B[7m';
+              }
+              if (isHidden) {
+                returnValue += '\x1B[8m';
+              }
+              if (isStrikethrough) {
+                returnValue += '\x1B[9m';
               }
             }
           }
@@ -105,8 +181,32 @@ export function sliceAnsi(input: string, start: number, end?: number) {
     }
   }
 
-  for (let i = activeCodes.length - 1; i >= 0; i--) {
-    returnValue += `\x1B[${activeCodes[i][1]}m`;
+  if (currentFg) {
+    returnValue += '\x1B[39m';
+  }
+  if (currentBg) {
+    returnValue += '\x1B[49m';
+  }
+  if (isDim) {
+    returnValue += '\x1B[22m';
+  }
+  if (isBold) {
+    returnValue += '\x1B[22m';
+  }
+  if (isItalic) {
+    returnValue += '\x1B[23m';
+  }
+  if (isUnderline) {
+    returnValue += '\x1B[24m';
+  }
+  if (isInverse) {
+    returnValue += '\x1B[27m';
+  }
+  if (isHidden) {
+    returnValue += '\x1B[28m';
+  }
+  if (isStrikethrough) {
+    returnValue += '\x1B[29m';
   }
 
   return returnValue;
