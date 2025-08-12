@@ -90,11 +90,9 @@ export function sliceAnsi(input: string, start: number, end?: number) {
           if (!include) {
             include = position >= start;
             if (include) {
-              returnValue = activeCodes
-                .map(([code]) => {
-                  return `\x1B[${code}m`;
-                })
-                .join('');
+              for (let i = 0; i < activeCodes.length; i++) {
+                returnValue += `\x1B[${activeCodes[i][0]}m`;
+              }
             }
           }
           if (include) {
@@ -107,11 +105,9 @@ export function sliceAnsi(input: string, start: number, end?: number) {
     }
   }
 
-  returnValue += activeCodes
-    .reverse()
-    .map(([, code]) => {
-      return `\x1B[${code}m`;
-    })
-    .join('');
+  for (let i = activeCodes.length - 1; i >= 0; i--) {
+    returnValue += `\x1B[${activeCodes[i][1]}m`;
+  }
+
   return returnValue;
 }
