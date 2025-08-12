@@ -12,6 +12,7 @@ export function sliceAnsi(input: string, start: number, end?: number) {
 
   let currentFg: string | undefined;
   let currentBg: string | undefined;
+  let currentUnknown: string | undefined;
   let isDim = false;
   let isBold = false;
   let isItalic = false;
@@ -51,6 +52,7 @@ export function sliceAnsi(input: string, start: number, end?: number) {
           case '0':
             currentFg = undefined;
             currentBg = undefined;
+            currentUnknown = undefined;
             isDim = false;
             isBold = false;
             isItalic = false;
@@ -108,18 +110,22 @@ export function sliceAnsi(input: string, start: number, end?: number) {
           default: {
             const asNumber = Number(currentData);
 
-            if (asNumber >= 30 && asNumber <= 37) {
+            if (
+              (asNumber >= 30 && asNumber <= 37) ||
+              (asNumber >= 90 && asNumber <= 97)
+            ) {
               currentFg = currentData;
-            } else if (asNumber >= 90 && asNumber <= 97) {
-              currentFg = currentData;
-            } else if (asNumber >= 40 && asNumber <= 47) {
-              currentBg = currentData;
-            } else if (asNumber >= 100 && asNumber <= 107) {
+            } else if (
+              (asNumber >= 40 && asNumber <= 47) ||
+              (asNumber >= 100 && asNumber <= 107)
+            ) {
               currentBg = currentData;
             } else if (currentData.startsWith('38;')) {
               currentFg = currentData;
             } else if (currentData.startsWith('48;')) {
               currentBg = currentData;
+            } else {
+              currentUnknown = currentData;
             }
             break;
           }
@@ -166,6 +172,9 @@ export function sliceAnsi(input: string, start: number, end?: number) {
               if (isStrikethrough) {
                 prefix += '\x1B[9m';
               }
+              if (currentUnknown) {
+                prefix += `\x1B[${currentUnknown}m`;
+              }
             }
           }
           if (codePoint !== undefined && codePoint > 0xffff) {
@@ -204,6 +213,9 @@ export function sliceAnsi(input: string, start: number, end?: number) {
   }
   if (isStrikethrough) {
     returnValue += '\x1B[29m';
+  }
+  if (currentUnknown) {
+    returnValue += `\x1B[0m`;
   }
 
   return returnValue;
