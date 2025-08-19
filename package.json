@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
-    "@types/node": "^24.1.0",
+    "@types/node": "^24.3.0",
     "eslint": "^9.32.0",
     "globals": "^16.3.0",
     "premove": "^4.0.0",
