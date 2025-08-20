@@ -2,9 +2,26 @@ import {tokenizer} from '@ansi-tools/parser';
 
 const CSI = '\x1b[';
 
-export function sliceAnsi(input: string, start: number, end?: number) {
-  if (end !== undefined && start === end) {
-    return '';
+export interface Options {
+  visual?: boolean;
+}
+
+export function sliceAnsi(
+  input: string,
+  start: number,
+  end?: number,
+  options?: Options
+) {
+  const inputLength = input.length;
+  const visual = options?.visual !== false;
+
+  if (end !== undefined) {
+    if (end < 0) {
+      end = inputLength + end;
+    }
+    if (start === end) {
+      return '';
+    }
   }
 
   const codes = tokenizer(input);
@@ -13,7 +30,7 @@ export function sliceAnsi(input: string, start: number, end?: number) {
   let currentIntroducer: string | undefined;
   let currentData: string | undefined;
   let rawStart: number = 0;
-  let rawIndex: number = input.length;
+  let rawIndex: number = inputLength;
   let prefix: string = '';
 
   let currentFg: string | undefined;
@@ -183,7 +200,7 @@ export function sliceAnsi(input: string, start: number, end?: number) {
               }
             }
           }
-          if (codePoint !== undefined && codePoint > 0xffff) {
+          if (visual && codePoint !== undefined && codePoint > 0xffff) {
             i++;
           }
           position++;
