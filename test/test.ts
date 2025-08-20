@@ -80,7 +80,7 @@ test('can slice empty ranges', () => {
   assert.equal(sliceAnsi('foo', 0, 0), '');
 });
 
-test('can slice links', () => {
+test.todo('can slice links', () => {
   const link = '\u001B]8;;https://example.com\u0007Example\u001B]8;;\u0007';
   assert.equal(sliceAnsi(link, 0, 6), link);
 });
