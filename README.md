@@ -2,7 +2,7 @@
 
 > A fast `String#slice` which supports ANSI escape sequences.
 
-Originally a fork of `slice-ansi`, this has various performance and size improvements.
+Inspired by `slice-ansi`, this comes with various performance improvements.
 
 ## Install
 
