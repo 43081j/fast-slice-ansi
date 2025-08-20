@@ -1,13 +1,19 @@
 import {tokenizer} from '@ansi-tools/parser';
 
+const CSI = '\x1b[';
+
 export function sliceAnsi(input: string, start: number, end?: number) {
+  if (end !== undefined && start === end) {
+    return '';
+  }
+
   const codes = tokenizer(input);
   let position = 0;
   let include = false;
   let currentIntroducer: string | undefined;
   let currentData: string | undefined;
   let rawStart: number = 0;
-  let rawIndex: number = 0;
+  let rawIndex: number = input.length;
   let prefix: string = '';
 
   let currentFg: string | undefined;
@@ -22,26 +28,21 @@ export function sliceAnsi(input: string, start: number, end?: number) {
   let isStrikethrough = false;
 
   codeLoop: for (const code of codes) {
-    const codeLength = code.raw.length;
-
     switch (code.type) {
       case 'INTRODUCER':
         currentIntroducer = code.raw;
         currentData = undefined;
-        rawIndex += codeLength;
         break;
       case 'DATA': {
-        if (currentIntroducer === '\x1b[') {
+        if (currentIntroducer === CSI) {
           currentData = code.raw;
         }
-        rawIndex += codeLength;
         break;
       }
       case 'FINAL': {
-        rawIndex += codeLength;
         if (
           currentData === undefined ||
-          currentIntroducer !== '\x1b[' ||
+          currentIntroducer !== CSI ||
           code.raw !== 'm'
         ) {
           break;
@@ -133,54 +134,61 @@ export function sliceAnsi(input: string, start: number, end?: number) {
         break;
       }
       case 'TEXT': {
-        for (let i = 0; i < code.raw.length; i++) {
+        const rawLength = code.raw.length;
+        if (!include && rawLength + position <= start) {
+          const codeLength = [...code.raw].length;
+          position += codeLength;
+          break;
+        }
+
+        for (let i = 0; i < rawLength; i++) {
           if (end !== undefined && position >= end) {
+            rawIndex = code.pos + i + 1;
             break codeLoop;
           }
           const codePoint = code.raw.codePointAt(i);
           if (!include) {
             include = position >= start;
             if (include) {
-              rawStart = rawIndex;
+              rawStart = code.pos + i;
               if (currentFg) {
-                prefix += `\x1B[${currentFg}m`;
+                prefix += `${CSI}${currentFg}m`;
               }
               if (currentBg) {
-                prefix += `\x1B[${currentBg}m`;
+                prefix += `${CSI}${currentBg}m`;
               }
               if (isDim) {
-                prefix += '\x1B[2m';
+                prefix += `${CSI}2m`;
               }
               if (isBold) {
-                prefix += '\x1B[1m';
+                prefix += `${CSI}1m`;
               }
               if (isItalic) {
-                prefix += '\x1B[3m';
+                prefix += `${CSI}3m`;
               }
               if (isUnderline) {
-                prefix += '\x1B[4m';
+                prefix += `${CSI}4m`;
               }
               if (isInverse) {
-                prefix += '\x1B[7m';
+                prefix += `${CSI}7m`;
               }
               if (isHidden) {
-                prefix += '\x1B[8m';
+                prefix += `${CSI}8m`;
               }
               if (isStrikethrough) {
-                prefix += '\x1B[9m';
+                prefix += `${CSI}9m`;
               }
               if (currentUnknown) {
-                prefix += `\x1B[${currentUnknown}m`;
+                prefix += `${CSI}${currentUnknown}m`;
               }
             }
           }
           if (codePoint !== undefined && codePoint > 0xffff) {
             i++;
-            rawIndex++;
           }
-          rawIndex++;
           position++;
           if (end !== undefined && position >= end) {
+            rawIndex = code.pos + i + 1;
             break codeLoop;
           }
         }
@@ -191,31 +199,31 @@ export function sliceAnsi(input: string, start: number, end?: number) {
 
   let returnValue = prefix + input.slice(rawStart, rawIndex);
   if (currentFg) {
-    returnValue += '\x1B[39m';
+    returnValue += `${CSI}39m`;
   }
   if (currentBg) {
-    returnValue += '\x1B[49m';
+    returnValue += `${CSI}49m`;
   }
   if (isDim || isBold) {
-    returnValue += '\x1B[22m';
+    returnValue += `${CSI}22m`;
   }
   if (isItalic) {
-    returnValue += '\x1B[23m';
+    returnValue += `${CSI}23m`;
   }
   if (isUnderline) {
-    returnValue += '\x1B[24m';
+    returnValue += `${CSI}24m`;
   }
   if (isInverse) {
-    returnValue += '\x1B[27m';
+    returnValue += `${CSI}27m`;
   }
   if (isHidden) {
-    returnValue += '\x1B[28m';
+    returnValue += `${CSI}28m`;
   }
   if (isStrikethrough) {
-    returnValue += '\x1B[29m';
+    returnValue += `${CSI}29m`;
   }
   if (currentUnknown) {
-    returnValue += `\x1B[0m`;
+    returnValue += `${CSI}0m`;
   }
 
   return returnValue;
