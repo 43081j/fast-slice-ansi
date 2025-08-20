@@ -22,6 +22,18 @@ const result = sliceAnsi(input, 6);
 // result: '\u001b[34mblue\u001b[39m world'
 ```
 
+### Options
+
+An options object can be passed which has the following properties:
+
+- `visual`: If `true` (default), slices operate against the visual representation of the string (e.g. a surrogate pair is counted as one character)
+
+Example:
+
+```ts
+sliceAnsi(input, 0, 3, {visual: false});
+```
+
 ## License
 
 MIT

@@ -19,9 +19,9 @@ const inputs = [
   },
   {
     name: 'long',
-    input: `A somewhat long ${styleText('red', ' red text ').repeat(20)} example`,
-    start: 0,
-    end: 5
+    input: `A somewhat long ${styleText('red', ' red text ')} example`.repeat(80),
+    start: 100,
+    end: 180
   },
   {
     name: 'nested colours',
