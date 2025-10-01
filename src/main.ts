@@ -1,6 +1,7 @@
 import {tokenizer} from '@ansi-tools/parser';
 
 const CSI = '\x1b[';
+const OSC = '\x1b]';
 
 export interface Options {
   visual?: boolean;
@@ -43,6 +44,7 @@ export function sliceAnsi(
   let isInverse = false;
   let isHidden = false;
   let isStrikethrough = false;
+  let currentLink: string | undefined;
 
   codeLoop: for (const code of codes) {
     switch (code.type) {
@@ -51,17 +53,28 @@ export function sliceAnsi(
         currentData = undefined;
         break;
       case 'DATA': {
-        if (currentIntroducer === CSI) {
+        if (currentIntroducer === CSI || currentIntroducer === OSC) {
           currentData = code.raw;
         }
         break;
       }
       case 'FINAL': {
-        if (
-          currentData === undefined ||
-          currentIntroducer !== CSI ||
-          code.raw !== 'm'
-        ) {
+        if (currentData === undefined) {
+          break;
+        }
+        if (currentIntroducer === OSC) {
+          if (currentData === '8;;') {
+            currentLink = undefined;
+          } else {
+            const firstSemi = currentData.indexOf(';');
+            const secondSemi = currentData.indexOf(';', firstSemi + 1);
+            if (secondSemi !== -1) {
+              currentLink = currentData.slice(secondSemi + 1);
+            }
+          }
+          break;
+        }
+        if (currentIntroducer !== CSI || code.raw !== 'm') {
           break;
         }
         const asNumber = +currentData;
@@ -168,6 +181,9 @@ export function sliceAnsi(
             include = position >= start;
             if (include) {
               rawStart = code.pos + i;
+              if (currentLink) {
+                prefix += `${OSC}8;;${currentLink}\x07`;
+              }
               if (currentFg) {
                 prefix += `${CSI}${currentFg}m`;
               }
@@ -241,6 +257,9 @@ export function sliceAnsi(
   }
   if (currentUnknown) {
     returnValue += `${CSI}0m`;
+  }
+  if (currentLink) {
+    returnValue += `${OSC}8;;\x07`;
   }
 
   return returnValue;

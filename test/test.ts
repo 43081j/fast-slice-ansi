@@ -80,9 +80,9 @@ test('can slice empty ranges', () => {
   assert.equal(sliceAnsi('foo', 0, 0), '');
 });
 
-test.todo('can slice links', () => {
+test('can slice links', () => {
   const link = '\u001B]8;;https://example.com\u0007Example\u001B]8;;\u0007';
-  assert.equal(sliceAnsi(link, 0, 6), link);
+  assert.equal(sliceAnsi(link, 0, 7), link);
 });
 
 test('can slice text with control codes', () => {
@@ -98,4 +98,9 @@ test('can slice between surrogates when visual is false', () => {
 test('can slice negative indices', () => {
   const input = 'Some test string full of fluff';
   assert.equal(sliceAnsi(input, 0, -9), 'Some test string full');
+});
+
+test('can slice with OSC sequences', () => {
+  const input = 'Some test string \x1B]2;Window Title\x07 other stuff';
+  assert.equal(sliceAnsi(input, 18), 'other stuff');
 });

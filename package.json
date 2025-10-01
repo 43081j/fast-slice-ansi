@@ -44,6 +44,6 @@
   },
   "dependencies": {
     "@ansi-tools/parser": "^1.0.10",
-    "fast-string-width": "^1.1.0"
+    "fast-string-width": "^3.0.2"
   }
 }
