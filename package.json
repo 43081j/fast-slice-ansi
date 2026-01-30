@@ -43,6 +43,6 @@
     "typescript-eslint": "^8.54.0"
   },
   "dependencies": {
-    "@ansi-tools/parser": "^1.0.10"
+    "@ansi-tools/parser": "^1.0.12"
   }
 }
