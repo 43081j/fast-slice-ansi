@@ -32,15 +32,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.2",
+    "@types/node": "^25.6.0",
     "eslint": "^10.2.0",
-    "globals": "^17.4.0",
+    "globals": "^17.5.0",
     "premove": "^4.0.0",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.2",
     "slice-ansi": "^9.0.0",
     "tinybench": "^6.0.0",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.58.2"
   },
   "dependencies": {
     "@ansi-tools/parser": "^1.0.15"
